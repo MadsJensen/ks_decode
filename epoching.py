@@ -13,7 +13,7 @@ from my_settings import raw_path, epochs_folder
 raw_files = glob(raw_path + "*bp-raw.fif")
 raw_files.sort()
 
-tmin, tmax = -0.1, 0.7
+tmin, tmax = -0.1, 1.0
 baseline = (None, 0.)
 reject = dict(mag=4e-12)
 
@@ -82,16 +82,16 @@ def correct_events(events, raw):
                 else:
                     k += 1
 
-    adjustTimeLineBy = -33
+    adjust_time_line_by = -33
     events_new[:, 0] = [
-        x - np.round(adjustTimeLineBy * 10**-3 * raw.info['sfreq'])
+        x - np.round(adjust_time_line_by * 10**-3 * raw.info['sfreq'])
         for x in events[:, 0]
     ]
 
     return events_new
 
 
-for r in raw_files[-3]:
+for r in raw_files:
     raw = mne.io.read_raw_fif(r)
     events = mne.find_events(raw)
     events_corrected = correct_events(events, raw)
