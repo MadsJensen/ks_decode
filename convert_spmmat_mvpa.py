@@ -13,6 +13,8 @@ from sklearn.preprocessing import StandardScaler
 
 os.chdir('/Users/au194693/tmp/data/ks_decode')
 
+random_seed = 25160150
+
 n_jobs = 3
 subjects = ['as', 'ac', 'am', 'bk', 'gg', 'js', 'ks', 'ss']
 
@@ -28,8 +30,8 @@ events_id = {
 data_path = spm_face.data_path()
 raw_fname = data_path + '/MEG/spm/SPM_CTF_MEG_example_faces%d_3D.ds'
 raw = mne.io.read_raw_ctf(raw_fname % 1, preload=True)  # Take first run
-raw.pick_types(meg='mag', ref_meg=False)
 raw.info['sfreq'] = 200
+# raw.pick_types(meg='mag', ref_meg=False)
 
 # loop over subjects, first conver the data, the extract and run MVPA
 for subject in subjects:
@@ -39,18 +41,24 @@ for subject in subjects:
     data = D['dat']
     trials = trials['trials']
 
-    info = mne.create_info(raw.ch_names, sfreq=200, ch_types='mag')
+    info = mne.create_info(raw.ch_names[32:-34], sfreq=200, ch_types='mag')
     epochs = mne.EpochsArray(data, info, tmin=-0.1)
     epochs.events[:, 2] = trials.reshape(-1)
     epochs.event_id = events_id
-    epochs.save('%s-epo.fif' % subject)
+    # epochs.save('%s-epo.fif' % subject)
 
     epochs.equalize_event_counts(epochs.event_id)
 
-    X = np.concatenate((epochs["face"].get_data(),
-                        epochs["grating"].get_data()))
-    y = np.concatenate((np.zeros(len(epochs["face"].get_data())),
-                        np.ones(len(epochs["grating"].get_data()))))
+    # Extract half of the epochs for similar SNR in all conditions
+    epochs_nr = len(epochs['left/grating'])
+    epochs_range = np.random.permutation(np.arange(0, epochs_nr, 1))
+    np.save('%s_epochs_range.npy' % subject, epochs_range)
+
+    X = np.concatenate(
+        (epochs["face"][epochs_range[:int(epochs_nr / 2)]].get_data(),
+         epochs["grating"][epochs_range[:int(epochs_nr / 2)]].get_data()))
+    y = np.concatenate((np.zeros(int(epochs_nr / 2)),
+                        np.ones(int(epochs_nr / 2))))
     cv = StratifiedKFold(n_splits=10, shuffle=True)
 
     clf = make_pipeline(StandardScaler(), LogisticRegression())
@@ -59,8 +67,8 @@ for subject in subjects:
     scores = cross_val_multiscore(time_gen, X, y, cv=cv)
 
     # Save results
-    joblib.dump(time_gen, "%s_time_gen.jbl" % subject)
-    np.save("%s_time_gen_score.npy" % subject, scores)
+    joblib.dump(time_gen, "%s_time_gen_svm.jbl" % subject)
+    np.save("%s_time_gen_score_svm.npy" % subject, scores)
 
     X_left = np.concatenate((epochs["left/face"].get_data(),
                              epochs["left/grating"].get_data()))
@@ -73,8 +81,8 @@ for subject in subjects:
     scores_left = cross_val_multiscore(time_gen, X_left, y_left, cv=cv)
 
     # Save results
-    joblib.dump(time_gen_left, "%s_time_gen_left.jbl" % subject)
-    np.save("%s_time_gen_score_left.npy" % subject, scores_left)
+    joblib.dump(time_gen_left, "%s_time_gen_left_svm.jbl" % subject)
+    np.save("%s_time_gen_score_left_svm.npy" % subject, scores_left)
 
     X_right = np.concatenate((epochs["right/face"].get_data(),
                               epochs["right/grating"].get_data()))
@@ -88,5 +96,5 @@ for subject in subjects:
     scores_right = cross_val_multiscore(time_gen, X_right, y_right, cv=cv)
 
     # Save results
-    joblib.dump(time_gen_right, "%s_time_gen_right.jbl" % subject)
-    np.save("%s_time_gen_score_right.npy" % subject, scores_right)
+    joblib.dump(time_gen_right, "%s_time_gen_right_svm.jbl" % subject)
+    np.save("%s_time_gen_score_right_svm.npy" % subject, scores_right)
