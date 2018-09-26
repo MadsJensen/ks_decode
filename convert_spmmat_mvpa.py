@@ -17,6 +17,7 @@ random_seed = 25160150
 
 n_jobs = 3
 subjects = ['as', 'ac', 'am', 'bk', 'gg', 'js', 'ks', 'ss']
+# subjects = ['ss']
 
 events_id = {
     # "onset": 1,
